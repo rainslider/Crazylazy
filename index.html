@@ -1,0 +1,60 @@
+<!doctype html><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"><title>BlueBox Games</title>
+<style>
+body{margin:0;font:16px system-ui;background:#0a1a3a;color:#fff}
+header{display:flex;justify-content:space-between;align-items:center;padding:10px 12px;background:#0d47c9;position:sticky;top:0;z-index:5}
+button,input,textarea{font:inherit;border-radius:8px;border:0;padding:8px 12px;margin:3px}
+button{background:#2f7bff;color:#fff;cursor:pointer}button:disabled{opacity:.5}input,textarea{background:#fff;color:#000}
+#plus{font-size:24px;padding:2px 14px;background:#fff;color:#0d47c9;font-weight:700}
+.g{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px}
+.c{background:#12306b;border-radius:12px;padding:14px;cursor:pointer;text-align:center}.c b{display:block;font-size:36px}
+canvas{background:#0b1e3f;max-width:100%;border-radius:12px;touch-action:none}
+#m{padding:14px;max-width:700px;margin:auto}.st{color:#ffd23f}
+</style>
+<header><button onclick=admin()>Admin</button><b onclick=home() style=cursor:pointer>🔷 BlueBox Games</b><span><button id=acc onclick=account()>Log in</button><button id=plus onclick=create()>+</button></span></header>
+<div id=m></div>
+<script src=games.js></script>
+<script>
+let T=localStorage.t,U=null,stopGame=()=>{},W=[],tool='house',poll,RC,AD='';
+const $=s=>document.querySelector(s),M=$('#m'),esc=s=>String(s).replace(/[&<>"']/g,c=>'&#'+c.charCodeAt(0)+';');
+const api=(a,b={})=>fetch('/api/'+a,{method:'POST',body:JSON.stringify({token:T,...b})}).then(r=>r.json()).then(j=>{if(j.error)throw j.error;return j});
+const go=f=>async(...a)=>{try{await f(...a)}catch(e){alert(e)}};
+const nav=()=>{stopGame();stopGame=()=>{};clearInterval(poll)};
+const me=async()=>{try{U=T?(await api('me')).user:null}catch{U=null}$('#acc').textContent=U?(U.premium?'⭐ ':'')+U.display+' · 🪙'+U.coins:'Log in'};
+const home=go(async()=>{nav();await me();const g=(await api('games')).games;window.GL=g;
+ M.innerHTML='<h2>Games</h2><div class=g>'+BUILT.map(([id,n,e])=>`<div class=c onclick="show('${n}',GAMES.${id})"><b>${e}</b>${n}</div>`).join('')+
+ g.map((x,i)=>`<div class=c onclick="show(GL[${i}].title,world(GL[${i}].world))"><b>🧱</b>${esc(x.title)}<br><small>by ${esc(x.by)}</small></div>`).join('')+'</div>'});
+function show(title,fn){nav();M.innerHTML=`<button onclick=home()>← Back</button><h2>${esc(title)}</h2><canvas id=cv width=400 height=500></canvas><p>Score: <span id=sc>0</span> · Best: <span id=bs>0</span> <small>(arrows / mouse / touch)</small></p>`;
+ let best=0;stopGame=fn($('#cv'),s=>{$('#sc').textContent=s;if(s>best)$('#bs').textContent=best=s});if(T)api('played').catch(()=>{})}
+function create(){if(!U)return auth();nav();
+ M.innerHTML=`<h2>Create a game</h2><p>Collect all 🪙, avoid 👾, walls block you. Click the canvas to place.</p>${Object.keys(EM).map(t=>`<button onclick="tool='${t}'">${EM[t]} ${t}</button>`).join('')}<button onclick="W.pop();draw()">Undo</button><button onclick="W=[];draw()">Clear</button><br><canvas id=cv width=400 height=500></canvas><h3>Code</h3><textarea id=code rows=5 style=width:100%></textarea><button onclick=apply()>Apply code</button><button onclick=testg()>▶ Test</button><br><input id=gn placeholder="Game name"><button onclick=pubg()>Publish</button>`;
+ $('#cv').onclick=e=>{const r=e.target.getBoundingClientRect();W.push({t:tool,x:Math.round((e.clientX-r.left)*400/r.width),y:Math.round((e.clientY-r.top)*500/r.height)});draw()};draw()}
+function draw(){const x=$('#cv').getContext('2d');x.fillStyle='#0b1e3f';x.fillRect(0,0,400,500);x.font='30px serif';x.textAlign='center';x.textBaseline='middle';W.forEach(i=>x.fillText(EM[i.t],i.x,i.y));$('#code').value=JSON.stringify(W)}
+const apply=()=>{try{W=JSON.parse($('#code').value);draw()}catch{alert('Invalid code')}};
+const testg=()=>{const w=W,n=$('#gn')?.value;show('Test',world(w))};
+const pubg=go(async()=>{if(!$('#gn').value.trim())throw'Give your game a name';if(!W.some(i=>i.t=='coin'))throw'Add at least one coin';
+ await api('publish',{title:$('#gn').value.trim(),world:W});W=[];await me();alert('Published!');home()});
+function auth(){nav();M.innerHTML=`<h2>Log in</h2><input id=ln placeholder=Name><input id=lp type=password placeholder=Password><button onclick=doLogin()>Log in</button>
+<h2>Sign up</h2><input id=se placeholder=Email><input id=sn placeholder=Name><input id=sp type=password placeholder=Password><input id=sk placeholder="Login code"><p>No code yet? Email the owner to request one:</p><button id=ml>✉️ Email rainslideryoutube@gmail.com</button><br><button onclick=doSignup()>Sign up</button>`;
+ $('#ml').onclick=()=>location.href='mailto:rainslideryoutube@gmail.com?subject=Login code&body='+encodeURIComponent('Hi! Please send me a login code.\nEmail: '+$('#se').value+'\nName: '+$('#sn').value)}
+const done=async j=>{T=localStorage.t=j.token;await me();home()};
+const doLogin=go(async()=>done(await api('login',{name:$('#ln').value,password:$('#lp').value})));
+const doSignup=go(async()=>done(await api('signup',{email:$('#se').value.trim(),name:$('#sn').value.trim(),password:$('#sp').value,code:$('#sk').value.trim()})));
+const logout=()=>{T=localStorage.t='';U=null;me();home()};
+const account=go(async()=>{if(!U)return auth();nav();await me();const t=(await api('tasks')).tasks;
+ M.innerHTML=`<h2>${U.premium?'⭐ ':''}${esc(U.display)}</h2><p class=st>🪙 ${U.coins} coins</p><h3>Tasks</h3>`+t.map(k=>`<div>${k.text} (+${k.coins}) <button ${k.done?'disabled':''} onclick="claim('${k.id}')">${k.done?'Done':'Claim'}</button></div>`).join('')+
+ (U.premium?`<h3>Premium</h3><input id=nn placeholder="New name"><button onclick=rename()>Change name</button><h3>Friends</h3>${U.friends.map(f=>'<div>⭐ '+esc(f)+'</div>').join('')}<input id=fn placeholder="Friend's username (needs premium)"><button onclick=addf()>Add</button><h3>Play together</h3><button onclick=mkroom()>Create room</button><input id=jc placeholder="Join code"><button onclick=joinroom()>Join</button><div id=room></div>`
+ :`<h3>Premium</h3><p>500 coins: change your name, add friends, play together with a join code, chat, and a ⭐ next to your name. Earn coins by publishing games and finishing tasks.</p><button onclick=buy()>Buy premium (500 🪙)</button>`)+'<br><button onclick=logout()>Log out</button>'});
+const act=(a,b)=>go(async()=>{await api(a,b?b():{});await account()});
+const claim=id=>act('claim',()=>({id}))(),buy=act('premium'),rename=act('rename',()=>({name:$('#nn').value})),addf=act('addf',()=>({name:$('#fn').value}));
+const mkroom=go(async()=>openRoom((await api('room')).code)),joinroom=go(async()=>openRoom((await api('join',{code:$('#jc').value})).code));
+const send=go(async()=>{const t=$('#tx').value;if(t){$('#tx').value='';await api('chat',{code:RC,text:t})}});
+function openRoom(c){RC=c;clearInterval(poll);$('#room').innerHTML=`<h3>Room code: <span class=st>${c}</span></h3><div id=ms style="background:#12306b;border-radius:8px;padding:8px;height:160px;overflow:auto"></div><input id=tx placeholder=Message><button onclick=send()>Send</button>`;
+ const p=async()=>{try{const j=await api('poll',{code:c});$('#ms').innerHTML='<small>In room: '+j.members.map(esc).join(', ')+'</small>'+j.msgs.map(m=>`<div><b>${esc(m.from)}:</b> ${esc(m.text)}</div>`).join('')}catch{}};p();poll=setInterval(p,2000)}
+async function adm(op,x={}){const j=await api('adm',{admin:AD,op,...x});nav();
+ M.innerHTML=`<h2>Admin</h2><h3>Create login code</h3><input id=ae placeholder="Their email"><button onclick="adm1('code',{email:$('#ae').value})">Create code</button>`+(j.code?`<p class=st>Code to send: <b>${j.code}</b></p>`:'')+
+ '<h3>Accounts</h3>'+j.users.map(u=>`<div>${esc(u.name)} · ${esc(u.email)} · 🪙${u.coins} ${u.premium?'⭐':''} <button onclick="adm1('coins',{id:'${u.name}',amount:prompt('How many coins to give?')})">+🪙</button><button onclick="adm1('delUser',{id:'${u.name}'})">Delete</button></div>`).join('')+
+ '<h3>Games</h3>'+j.games.map(g=>`<div>${esc(g.title)} by ${esc(g.by)} <button onclick="adm1('delGame',{id:'${g.id}'})">Delete</button></div>`).join('')}
+const adm1=go(adm),admin=go(async()=>{const a=prompt('Admin code');if(a){AD=a;await adm('list')}});
+me().then(home);
+</script>
+<script>addEventListener('error',e=>{document.title='ERR';M.insertAdjacentHTML('afterbegin','<p style=color:#f88>Error: '+esc(e.message)+'</p>')})</script>
